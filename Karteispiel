@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Karteikarten</title>
+<style>
+  
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --text: #f0ece4;
+    --text-dim: #555;
+    --accent: #c8f060;
+    --radius: 16px;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1.5rem 5rem;
+  }
+
+  header {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 3rem;
+  }
+
+  .logo {
+    font-family: Georgia, serif;
+    font-size: 1.8rem;
+    letter-spacing: -0.02em;
+  }
+
+  .logo em { font-style: italic; color: var(--accent); }
+
+  .card-count {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+  }
+
+  .grid {
+    width: 100%;
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  .flip-wrap {
+    height: 200px;
+    perspective: 1000px;
+    cursor: pointer;
+    position: relative;
+    animation: rise 0.35s ease both;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .flip-inner {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s;
+    border-radius: var(--radius);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  .flip-wrap:hover .flip-inner:not(.flipped) {
+    transform: rotateY(5deg) translateY(-3px);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  }
+
+  .flip-inner.flipped {
+    transform: rotateY(180deg);
+    box-shadow: 0 12px 40px rgba(200,240,96,0.1);
+  }
+
+  .face {
+    position: absolute; inset: 0;
+    border-radius: var(--radius);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .face-front {
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .face-back {
+    background: #111;
+    border: 1px solid #222;
+    transform: rotateY(180deg);
+  }
+
+  .face-tag {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .face-back .face-tag { color: var(--accent); }
+
+  .face-content {
+    font-family: Georgia, serif;
+    font-size: 1.1rem;
+    line-height: 1.5;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 0;
+  }
+
+  .face-back .face-content { font-size: 1rem; }
+
+  .face-hint {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+  }
+
+  .delete-btn {
+    position: absolute;
+    top: 10px; right: 10px;
+    z-index: 20;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid transparent;
+    color: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .flip-wrap:hover .delete-btn { color: var(--text-dim); border-color: var(--border); }
+  .delete-btn:hover { background: #2a1010 !important; border-color: #6a2020 !important; color: #e06060 !important; }
+
+  .add-wrap {
+    height: 200px;
+    animation: rise 0.35s ease both;
+  }
+
+  .add-btn {
+    width: 100%; height: 100%;
+    border-radius: var(--radius);
+    background: transparent;
+    border: 1.5px dashed var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  .add-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(200,240,96,0.03); }
+
+  .add-icon {
+    font-size: 2rem;
+    font-weight: 300;
+    line-height: 1;
+    transition: transform 0.25s ease;
+  }
+
+  .add-btn:hover .add-icon { transform: rotate(90deg); }
+  .add-label { font-size: 0.8rem; }
+
+  /* Modal */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(6px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    width: min(440px, 94vw);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+    transform: translateY(12px) scale(0.98);
+    opacity: 0;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+
+  .overlay.open .modal { transform: translateY(0) scale(1); opacity: 1; }
+
+  .modal-title {
+    font-family: Georgia, serif;
+    font-size: 1.4rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .modal-title em { font-style: italic; color: var(--accent); }
+
+  .field { margin-bottom: 1rem; }
+
+  .field label {
+    display: block;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 0.4rem;
+  }
+
+  .field textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    color: var(--text);
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.95rem;
+    resize: none;
+    height: 78px;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.5;
+  }
+
+  .field textarea:focus { border-color: var(--accent); }
+  .field textarea::placeholder { color: #3a3a3a; }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 1.4rem;
+  }
+
+  .btn {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 0.8rem;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-ghost { background: transparent; border-color: var(--border); color: var(--text-dim); }
+  .btn-ghost:hover { color: var(--text); border-color: #444; }
+  .btn-primary { background: var(--accent); color: #0e0e0e; font-weight: 500; }
+  .btn-primary:hover { background: #d8ff70; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Karten<em>stapel</em></div>
+  <div class="card-count" id="count"></div>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-title">Neue <em>Karte</em></div>
+    <div class="field">
+      <label>Frage</label>
+      <textarea id="inp-q" placeholder="Was ist …?"></textarea>
+    </div>
+    <div class="field">
+      <label>Antwort</label>
+      <textarea id="inp-a" placeholder="Die Antwort …"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-cancel">Abbrechen</button>
+      <button class="btn btn-primary" id="btn-save">Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'karten_v1';
+
+  const defaults = [
+    { q: 'Was ist eine Variable?', a: 'Ein benannter Speicherplatz, der einen Wert halten kann, der sich zur Laufzeit ändern kann.' },
+    { q: 'Was bedeutet DRY?', a: 'Don\'t Repeat Yourself – jede Logik sollte nur an einer einzigen Stelle im Code existieren.' },
+    { q: 'Was ist ein API?', a: 'Application Programming Interface – eine Schnittstelle, über die Programme miteinander kommunizieren.' },
+    { q: '== vs. === in JavaScript?', a: '== vergleicht mit Typumwandlung, === vergleicht Wert und Typ strikt. Immer === bevorzugen.' },
+    { q: 'Was ist Refactoring?', a: 'Code intern verbessern (Struktur, Lesbarkeit) ohne das äussere Verhalten zu ändern.' },
+    { q: 'Was ist ein Git-Commit?', a: 'Ein Snapshot des Codes im Versionsverlauf, versehen mit einer Beschreibungsnachricht.' },
+    { q: 'Was bedeutet async/await?', a: 'Syntaktischer Zucker für Promises – erlaubt asynchronen Code wie synchronen zu schreiben.' },
+    { q: 'Was ist ein Stack?', a: 'Eine Datenstruktur nach LIFO (Last In, First Out) – zuletzt rein, zuerst raus.' },
+    { q: 'Was ist Polymorphismus?', a: 'Fähigkeit von Objekten verschiedener Klassen, auf denselben Methodenaufruf zu reagieren.' },
+    { q: 'Was ist eine REST API?', a: 'Eine Webarchitektur, die HTTP-Methoden (GET, POST, PUT, DELETE) standardisiert nutzt.' },
+  ];
+
+  let cards = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || defaults;
+
+  const grid = document.getElementById('grid');
+  const overlay = document.getElementById('overlay');
+  const inpQ = document.getElementById('inp-q');
+  const inpA = document.getElementById('inp-a');
+
+  function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(cards)); }
+
+  function updateCount() {
+    document.getElementById('count').textContent = cards.length + (cards.length === 1 ? ' Karte' : ' Karten');
+  }
+
+  function esc(t) {
+    return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderCard(card, idx) {
+    const wrap = document.createElement('div');
+    wrap.className = 'flip-wrap';
+    wrap.style.animationDelay = Math.min(idx * 0.05, 0.4) + 's';
+
+    const del = document.createElement('button');
+    del.className = 'delete-btn';
+    del.innerHTML = '✕';
+    del.title = 'Karte löschen';
+    del.addEventListener('click', e => {
+      e.stopPropagation();
+      cards.splice(idx, 1);
+      persist();
+      render();
+    });
+
+    const inner = document.createElement('div');
+    inner.className = 'flip-inner';
+    inner.addEventListener('click', () => inner.classList.toggle('flipped'));
+
+    inner.innerHTML = `
+      <div class="face face-front">
+        <div class="face-tag">Frage</div>
+        <div class="face-content">${esc(card.q)}</div>
+        <div class="face-hint">↩ umdrehen</div>
+      </div>
+      <div class="face face-back">
+        <div class="face-tag">Antwort</div>
+        <div class="face-content">${esc(card.a)}</div>
+        <div class="face-hint">↩ zurück</div>
+      </div>
+    `;
+
+    wrap.append(del, inner);
+    return wrap;
+  }
+
+  function renderAdd() {
+    const wrap = document.createElement('div');
+    wrap.className = 'add-wrap';
+    wrap.style.animationDelay = Math.min(cards.length * 0.05, 0.4) + 's';
+    wrap.innerHTML = `<button class="add-btn"><span class="add-icon">+</span><span class="add-label">Neue Karte</span></button>`;
+    wrap.querySelector('button').addEventListener('click', openModal);
+    return wrap;
+  }
+
+  function render() {
+    grid.innerHTML = '';
+    cards.forEach((c, i) => grid.appendChild(renderCard(c, i)));
+    grid.appendChild(renderAdd());
+    updateCount();
+  }
+
+  function openModal() {
+    inpQ.value = ''; inpA.value = '';
+    overlay.classList.add('open');
+    setTimeout(() => inpQ.focus(), 150);
+  }
+
+  function closeModal() { overlay.classList.remove('open'); }
+
+  document.getElementById('btn-cancel').addEventListener('click', closeModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+  document.getElementById('btn-save').addEventListener('click', () => {
+    const q = inpQ.value.trim();
+    const a = inpA.value.trim();
+    if (!q) { inpQ.focus(); return; }
+    if (!a) { inpA.focus(); return; }
+    cards.push({ q, a });
+    persist();
+    closeModal();
+    render();
+  });
+
+  [inpQ, inpA].forEach(el => {
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('btn-save').click();
+      }
+    });
+  });
+
+  render();
+</script>
+</body>
+</html>
